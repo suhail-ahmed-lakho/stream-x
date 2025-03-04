@@ -1,55 +1,41 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { HeroSection } from "@/components/hero-section"
+import { WelcomeBanner } from "@/components/welcome-banner"
 import { ContentRow } from "@/components/content-row"
-import { fetchTrending, fetchMoviesByCategory, type MovieResult } from "@/lib/tmdb"
+import { HeartButton } from "@/components/heart-button"
+import { Button } from "@/components/ui/button"
+import { fetchTrending, fetchPopularMovies, fetchTopRatedMovies, fetchMoviesByCategory } from "@/lib/tmdb"
+import { Film, Star } from "lucide-react"
+import { HeroSection } from "@/components/hero-section"
 
-export default function Home() {
-  const [trendingMovies, setTrendingMovies] = useState<MovieResult[]>([])
-  const [actionMovies, setActionMovies] = useState<MovieResult[]>([])
-  const [comedyMovies, setComedyMovies] = useState<MovieResult[]>([])
-  const [horrorMovies, setHorrorMovies] = useState<MovieResult[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default async function HomePage() {
+  // Fetch initial data for hero section
+  const trendingData = await fetchTrending()
+  const heroMovies = trendingData.results.slice(0, 5)
 
-  useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const trending = await fetchTrending()
-        setTrendingMovies(trending.results)
-
-        const action = await fetchMoviesByCategory("action")
-        setActionMovies(action.results)
-
-        const comedy = await fetchMoviesByCategory("comedy")
-        setComedyMovies(comedy.results)
-
-        const horror = await fetchMoviesByCategory("horror")
-        setHorrorMovies(horror.results)
-
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Failed to fetch movies:", error)
-        setIsLoading(false)
-      }
-    }
-
-    fetchMovies()
-  }, [])
+  // Fetch data for content rows
+  const [popularData, topRatedData, actionData, comedyData] = await Promise.all([
+    fetchPopularMovies(),
+    fetchTopRatedMovies(),
+    fetchMoviesByCategory("action"),
+    fetchMoviesByCategory("comedy")
+  ])
 
   return (
-    <div className="min-h-screen bg-black text-white dark:bg-black">
+    <div className="min-h-screen bg-black">
       <Header />
-      <main>
-        <HeroSection movies={trendingMovies} />
-
-        <div className="container mx-auto px-4 py-8 space-y-12">
-          <ContentRow title="Trending Now" movies={trendingMovies} isLoading={isLoading} />
-          <ContentRow title="Action Movies" movies={actionMovies} isLoading={isLoading} />
-          <ContentRow title="Comedy Movies" movies={comedyMovies} isLoading={isLoading} />
-          <ContentRow title="Horror Movies" movies={horrorMovies} isLoading={isLoading} />
+      <main className="min-h-screen bg-black overflow-x-hidden">
+        <HeroSection movies={heroMovies} />
+        
+        <div className="container mx-auto relative z-10 space-y-12 pb-12 px-2 md:px-4">
+          <ContentRow title="Trending Now" movies={trendingData.results} />
+          <ContentRow title="Popular" movies={popularData.results} />
+          <ContentRow title="Top Rated" movies={topRatedData.results} />
+          <ContentRow title="Action Movies" movies={actionData.results} />
+          <ContentRow title="Comedy Movies" movies={comedyData.results} />
         </div>
       </main>
       <Footer />

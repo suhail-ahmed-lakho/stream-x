@@ -26,26 +26,78 @@ export interface TMDBResponse {
   total_results: number
 }
 
+export interface MovieDetails extends MovieResult {
+  status: string
+  budget: number
+  revenue: number
+  runtime: number
+  genres: Array<{ id: number; name: string }>
+  production_companies: Array<{ id: number; name: string; logo_path: string | null }>
+  videos?: {
+    results: Array<{
+      id: string
+      key: string
+      name: string
+      site: string
+      type: string
+    }>
+  }
+  credits?: {
+    cast: Array<{
+      id: number
+      name: string
+      character: string
+      profile_path: string | null
+    }>
+    crew: Array<{
+      id: number
+      name: string
+      job: string
+      profile_path: string | null
+    }>
+  }
+}
+
 // Helper function to get image URL
 export const getImageUrl = (path: string | null, size = "original") => {
   if (!path) return null
   return `${IMAGE_BASE_URL}/${size}${path}`
 }
 
-// Get trending movies
-export const fetchTrending = async (): Promise<TMDBResponse> => {
-  const response = await fetch(`${BASE_URL}/trending/movie/week?api_key=${API_KEY}&language=en-US`)
+// Helper function to fetch from TMDB
+async function fetchFromTMDB(endpoint: string, params = {}) {
+  const queryParams = new URLSearchParams({
+    api_key: API_KEY,
+    language: "en-US",
+    ...params
+  })
+
+  const response = await fetch(`${BASE_URL}${endpoint}?${queryParams}`)
 
   if (!response.ok) {
-    throw new Error("Failed to fetch trending movies")
+    throw new Error(`TMDB API error: ${response.status}`)
   }
 
   return response.json()
 }
 
+// Get trending movies
+export const fetchTrending = async (timeWindow = "day"): Promise<TMDBResponse> => {
+  return fetchFromTMDB(`/trending/movie/${timeWindow}`)
+}
+
+// Get popular movies
+export const fetchPopularMovies = async (): Promise<TMDBResponse> => {
+  return fetchFromTMDB("/movie/popular")
+}
+
+// Get top rated movies
+export const fetchTopRatedMovies = async (): Promise<TMDBResponse> => {
+  return fetchFromTMDB("/movie/top_rated")
+}
+
 // Get movies by category/genre
 export const fetchMoviesByCategory = async (category: string): Promise<TMDBResponse> => {
-  // Map category names to genre IDs
   const genreMap: Record<string, number> = {
     action: 28,
     adventure: 12,
@@ -68,52 +120,26 @@ export const fetchMoviesByCategory = async (category: string): Promise<TMDBRespo
   }
 
   const genreId = genreMap[category.toLowerCase()] || 28 // Default to action if not found
-
-  const response = await fetch(
-    `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&language=en-US&sort_by=popularity.desc`,
-  )
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${category} movies`)
-  }
-
-  return response.json()
+  return fetchFromTMDB("/discover/movie", { with_genres: genreId })
 }
 
 // Get movie details
-export const fetchMovieDetails = async (movieId: number) => {
-  const response = await fetch(
-    `${BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=en-US&append_to_response=videos,credits`,
-  )
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch movie details")
-  }
-
-  return response.json()
+export const fetchMovieDetails = async (movieId: string | number): Promise<MovieDetails> => {
+  return fetchFromTMDB(`/movie/${movieId}`, { append_to_response: "videos,credits" })
 }
 
 // Search movies
 export const searchMovies = async (query: string): Promise<TMDBResponse> => {
-  const response = await fetch(
-    `${BASE_URL}/search/movie?api_key=${API_KEY}&language=en-US&query=${encodeURIComponent(query)}&page=1&include_adult=false`,
-  )
-
-  if (!response.ok) {
-    throw new Error("Failed to search movies")
-  }
-
-  return response.json()
+  return fetchFromTMDB("/search/movie", { query: encodeURIComponent(query) })
 }
 
-// Get movie videos (trailers, teasers, etc.)
+// Get similar movies
+export const fetchSimilarMovies = async (movieId: string | number): Promise<TMDBResponse> => {
+  return fetchFromTMDB(`/movie/${movieId}/similar`)
+}
+
+// Get movie videos
 export const fetchMovieVideos = async (movieId: number) => {
-  const response = await fetch(`${BASE_URL}/movie/${movieId}/videos?api_key=${API_KEY}&language=en-US`)
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch movie videos")
-  }
-
-  return response.json()
+  return fetchFromTMDB(`/movie/${movieId}/videos`)
 }
 

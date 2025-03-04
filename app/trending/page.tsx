@@ -1,80 +1,71 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { Input } from "@/components/ui/input"
+import { WelcomeBanner } from "@/components/welcome-banner"
 import { Button } from "@/components/ui/button"
-import { searchMovies, type MovieResult } from "@/lib/tmdb"
-import { Search as SearchIcon, Film, Star } from "lucide-react"
+import { fetchTrendingMovies, type MovieResult } from "@/lib/tmdb"
+import { Film, Calendar, Star } from "lucide-react"
 
-export default function SearchPage() {
-  const searchParams = useSearchParams()
-  const initialQuery = searchParams.get("q") || ""
-  const [query, setQuery] = useState(initialQuery)
+const timeWindows = [
+  { id: "day", label: "Today" },
+  { id: "week", label: "This Week" },
+]
+
+export default function TrendingPage() {
+  const [timeWindow, setTimeWindow] = useState("day")
   const [movies, setMovies] = useState<MovieResult[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Debounce search query
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query)
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [query])
-
-  // Fetch results when debounced query changes
-  useEffect(() => {
-    const fetchResults = async () => {
-      if (!debouncedQuery.trim()) {
-        setMovies([])
-        return
-      }
-
+    const fetchMovies = async () => {
       setIsLoading(true)
       try {
-        const data = await searchMovies(debouncedQuery)
+        const data = await fetchTrendingMovies(timeWindow)
         setMovies(data.results)
       } catch (error) {
-        console.error("Failed to search movies:", error)
+        console.error("Failed to fetch trending movies:", error)
       }
       setIsLoading(false)
     }
 
-    fetchResults()
-  }, [debouncedQuery])
+    fetchMovies()
+  }, [timeWindow])
 
   return (
     <div className="min-h-screen bg-black">
       <Header />
       <main className="container mx-auto px-4 pt-20 pb-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative mb-8">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="search"
-              placeholder="Search for movies..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 bg-gray-900/50 border-gray-800 focus:border-steam-red text-white placeholder:text-gray-400"
-            />
-          </div>
+        <div className="mb-8">
+          <WelcomeBanner />
+        </div>
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Trending Movies</h1>
+          <div className="flex gap-2 bg-gray-900/50 rounded-lg p-1">
+            {timeWindows.map((tw) => (
+              <Button
+                key={tw.id}
+                variant={timeWindow === tw.id ? "default" : "ghost"}
+                className={timeWindow === tw.id ? "bg-steam-red hover:bg-steam-red/90" : ""}
+                onClick={() => setTimeWindow(tw.id)}
+              >
+                {tw.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {isLoading
+            ? Array.from({ length: 20 }).map((_, i) => (
                 <div
                   key={i}
                   className="aspect-[2/3] rounded-lg bg-gray-800/50 animate-pulse"
                 />
-              ))}
-            </div>
-          ) : movies.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {movies.map((movie) => (
+              ))
+            : movies.map((movie) => (
                 <div
                   key={movie.id}
                   className="group relative aspect-[2/3] rounded-lg overflow-hidden bg-gray-900/50"
@@ -110,20 +101,9 @@ export default function SearchPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          ) : query ? (
-            <div className="text-center text-gray-400">
-              No results found for "{query}"
-            </div>
-          ) : (
-            <div className="text-center text-gray-400">
-              Start typing to search for movies
-            </div>
-          )}
         </div>
       </main>
       <Footer />
     </div>
   )
-}
-
+} 

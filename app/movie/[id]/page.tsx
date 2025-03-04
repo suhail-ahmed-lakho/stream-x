@@ -1,76 +1,50 @@
 "use client"
 
-import Link from "next/link"
-
 import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import Image from "next/image"
-import { Play, Plus, ThumbsUp, Share, Download, Volume2, VolumeX } from "lucide-react"
+import { Play, Plus, Star, Clock, Calendar, Film, ThumbsUp } from "lucide-react"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ContentRow } from "@/components/content-row"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
-import { fetchMovieDetails, fetchMovieVideos, fetchMoviesByCategory, getImageUrl } from "@/lib/tmdb"
-import ReactPlayer from "react-player/lazy"
+import { fetchMovieDetails, fetchSimilarMovies, getImageUrl } from "@/lib/tmdb"
 
-export default function MoviePage({ params }: { params: { id: string } }) {
-  const [isMuted, setIsMuted] = useState(true)
-  const [isPlaying, setIsPlaying] = useState(false)
+export default function MoviePage() {
+  const params = useParams()
   const [movie, setMovie] = useState<any>(null)
-  const [trailerUrl, setTrailerUrl] = useState<string | null>(null)
-  const [similarMovies, setSimilarMovies] = useState<any[]>([])
+  const [similarMovies, setSimilarMovies] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const fetchMovie = async () => {
+    const fetchData = async () => {
+      setIsLoading(true)
       try {
-        const movieId = Number.parseInt(params.id)
-        const movieData = await fetchMovieDetails(movieId)
+        const movieData = await fetchMovieDetails(params.id as string)
+        const similarData = await fetchSimilarMovies(params.id as string)
         setMovie(movieData)
-
-        // Get similar movies based on the first genre
-        if (movieData.genres && movieData.genres.length > 0) {
-          const genre = movieData.genres[0].name.toLowerCase()
-          const similar = await fetchMoviesByCategory(genre)
-          setSimilarMovies(similar.results.filter((m: any) => m.id !== movieId))
-        }
-
-        // Get trailer
-        const videos = await fetchMovieVideos(movieId)
-        const trailer = videos.results.find(
-          (video: any) => video.type === "Trailer" || video.type === "Teaser" || video.official === true,
-        )
-
-        if (trailer) {
-          setTrailerUrl(`https://www.youtube.com/watch?v=${trailer.key}`)
-        }
-
-        setIsLoading(false)
+        setSimilarMovies(similarData.results)
       } catch (error) {
-        console.error("Failed to fetch movie:", error)
-        setIsLoading(false)
+        console.error("Failed to fetch movie details:", error)
       }
+      setIsLoading(false)
     }
 
-    fetchMovie()
+    fetchData()
   }, [params.id])
 
-  if (isLoading) {
+  if (isLoading || !movie) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-black">
         <Header />
-        <main>
-          <div className="relative w-full h-[70vh]">
-            <Skeleton className="w-full h-full" />
-          </div>
-          <div className="container mx-auto px-4 py-8">
-            <Skeleton className="h-12 w-1/3 mb-4" />
-            <Skeleton className="h-6 w-1/4 mb-8" />
-            <Skeleton className="h-24 w-full mb-8" />
-            <div className="grid md:grid-cols-3 gap-8">
-              <Skeleton className="h-64 col-span-2" />
-              <Skeleton className="h-64" />
+        <main className="pt-20">
+          <div className="animate-pulse">
+            <div className="w-full h-[60vh] bg-gray-800" />
+            <div className="container mx-auto px-4 py-8">
+              <div className="h-8 w-64 bg-gray-800 rounded mb-4" />
+              <div className="h-4 w-full bg-gray-800 rounded mb-2" />
+              <div className="h-4 w-2/3 bg-gray-800 rounded" />
             </div>
           </div>
         </main>
@@ -79,200 +53,183 @@ export default function MoviePage({ params }: { params: { id: string } }) {
     )
   }
 
-  if (!movie) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p>Movie not found</p>
-      </div>
-    )
-  }
-
-  const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : ""
-  const runtime = movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : ""
-  const director = movie.credits?.crew.find((person: any) => person.job === "Director")
-  const cast = movie.credits?.cast.slice(0, 5) || []
-  const genres = movie.genres?.map((genre: any) => genre.name).join(", ") || ""
+  const releaseYear = new Date(movie.release_date).getFullYear()
+  const runtime = `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black">
       <Header />
+      <main className="pt-16">
+        {/* Hero Section */}
+        <div className="relative">
+          {/* Backdrop Image */}
+          <div className="relative h-[70vh] w-full">
+            <Image
+              src={getImageUrl(movie.backdrop_path || movie.poster_path, "original") || "/placeholder.svg"}
+              alt={movie.title}
+              fill
+              className="object-cover"
+              priority
+              sizes="100vw"
+              quality={90}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+          </div>
 
-      <main>
-        {/* Hero Section with Video/Image */}
-        <div className="relative w-full h-[70vh]">
-          {isPlaying && trailerUrl ? (
-            <div className="absolute inset-0 bg-black">
-              <ReactPlayer
-                url={trailerUrl}
-                width="100%"
-                height="100%"
-                playing={true}
-                muted={isMuted}
-                controls={true}
-                style={{ position: "absolute", top: 0, left: 0 }}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="absolute inset-0 bg-black">
-                <Image
-                  src={getImageUrl(movie.backdrop_path, "original") || "/placeholder.svg?height=1080&width=1920"}
-                  alt={movie.title}
-                  fill
-                  className="object-cover opacity-70"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-              </div>
+          {/* Movie Info Overlay */}
+          <div className="absolute inset-0 flex items-center">
+            <div className="container mx-auto px-4">
+              <div className="flex gap-8">
+                {/* Movie Poster */}
+                <div className="hidden md:block relative h-[400px] w-[300px] flex-shrink-0 rounded-lg overflow-hidden">
+                  <Image
+                    src={getImageUrl(movie.poster_path || movie.backdrop_path, "w500") || "/placeholder.svg"}
+                    alt={`${movie.title} poster`}
+                    fill
+                    className="object-cover"
+                    sizes="300px"
+                    quality={85}
+                  />
+                </div>
 
-              <div className="relative h-full container mx-auto px-4 flex flex-col justify-center">
-                <div className="max-w-2xl animate-slide-up">
-                  <h1 className="text-4xl md:text-6xl font-bold mb-4 text-white">
-                    <span className="text-steam-red">{movie.title}</span>
+                {/* Movie Info */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7 }}
+                  className="max-w-3xl space-y-6"
+                >
+                  <h1 className="text-4xl md:text-6xl font-bold">
+                    {movie.title}
                   </h1>
 
-                  <div className="flex items-center gap-4 mb-4">
-                    <span className="text-green-500 font-semibold">{Math.round(movie.vote_average * 10)}% Match</span>
-                    <span>{releaseYear}</span>
-                    <span className="border border-gray-600 px-1 text-xs">{movie.adult ? "R" : "PG-13"}</span>
-                    <span>{runtime}</span>
-                    <span className="border border-gray-600 px-1 text-xs">HD</span>
+                  <div className="flex flex-wrap items-center gap-4 text-sm md:text-base">
+                    <span className="flex items-center gap-1 bg-steam-red px-2 py-1 rounded">
+                      <Star className="h-4 w-4 fill-current" />
+                      {movie.vote_average.toFixed(1)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      {releaseYear}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {runtime}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Film className="h-4 w-4" />
+                      {movie.genres.map((g: any) => g.name).join(", ")}
+                    </span>
                   </div>
 
-                  <p className="text-lg text-gray-200 mb-8 line-clamp-3">{movie.overview}</p>
+                  <p className="text-lg text-gray-200 max-w-2xl line-clamp-4">
+                    {movie.overview}
+                  </p>
 
                   <div className="flex flex-wrap gap-4">
-                    <Button
-                      className="bg-white text-black hover:bg-white/90 gap-2 px-8 py-6"
-                      onClick={() => trailerUrl && setIsPlaying(true)}
-                      disabled={!trailerUrl}
-                    >
-                      <Play className="h-5 w-5 fill-black" />
-                      {trailerUrl ? "Play Trailer" : "No Trailer Available"}
+                    <Button size="lg" className="gap-2 bg-steam-red hover:bg-steam-red/90">
+                      <Play className="h-5 w-5 fill-current" />
+                      Play Now
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="bg-gray-700/60 text-white border-gray-600 hover:bg-gray-700 gap-2 px-6 py-6"
-                    >
+                    <Button size="lg" variant="outline" className="gap-2">
                       <Plus className="h-5 w-5" />
-                      My List
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="bg-gray-700/60 border-gray-600 hover:bg-gray-700 h-12 w-12 rounded-full"
-                    >
-                      <ThumbsUp className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="bg-gray-700/60 border-gray-600 hover:bg-gray-700 h-12 w-12 rounded-full"
-                    >
-                      <Share className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="ml-auto bg-black/40 border-gray-500 text-white hover:bg-black/60 rounded-full h-12 w-12"
-                      onClick={() => setIsMuted(!isMuted)}
-                    >
-                      {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                      Add to List
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               </div>
-            </>
-          )}
+            </div>
+          </div>
         </div>
 
-        {/* Movie Details */}
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div className="md:col-span-2">
-              <Tabs defaultValue="about" className="w-full">
-                <TabsList className="mb-6">
-                  <TabsTrigger value="about">About</TabsTrigger>
-                  <TabsTrigger value="trailers">Trailers & More</TabsTrigger>
-                  <TabsTrigger value="similar">Similar</TabsTrigger>
-                </TabsList>
-                <TabsContent value="about" className="space-y-6">
-                  <div>
-                    <p className="text-lg">{movie.overview}</p>
-                  </div>
+        {/* Details Section */}
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Left Column */}
+            <div className="md:col-span-2 space-y-8">
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">About the Movie</h2>
+                <p className="text-gray-300">{movie.overview}</p>
+              </section>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    <div>
-                      <h3 className="text-gray-400 mb-2">Cast</h3>
-                      <p>{cast.map((person: any) => person.name).join(", ")}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-gray-400 mb-2">Genres</h3>
-                      <p>{genres}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-gray-400 mb-2">Director</h3>
-                      <p>{director?.name || "Unknown"}</p>
-                    </div>
-                  </div>
-                </TabsContent>
-                <TabsContent value="trailers" className="space-y-6">
-                  {trailerUrl ? (
-                    <div className="aspect-video w-full">
-                      <ReactPlayer url={trailerUrl} width="100%" height="100%" controls={true} />
-                    </div>
-                  ) : (
-                    <p>No trailers available for this movie.</p>
-                  )}
-                </TabsContent>
-                <TabsContent value="similar">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {similarMovies.slice(0, 8).map((movie) => (
-                      <Link
-                        key={movie.id}
-                        href={`/movie/${movie.id}`}
-                        className="relative aspect-video rounded-md overflow-hidden hover:scale-105 transition duration-200"
-                      >
-                        <Image
-                          src={
-                            getImageUrl(movie.backdrop_path || movie.poster_path, "w500") ||
-                            "/placeholder.svg?height=720&width=1280"
-                          }
-                          alt={movie.title}
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity">
-                          <div className="absolute bottom-0 left-0 p-4">
-                            <p className="font-semibold line-clamp-1">{movie.title}</p>
-                          </div>
+              {movie.credits?.cast && movie.credits.cast.length > 0 && (
+                <section>
+                  <h2 className="text-2xl font-semibold mb-4">Cast</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {movie.credits.cast.slice(0, 10).map((person) => (
+                      <div key={person.id} className="space-y-2">
+                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden">
+                          <Image
+                            src={getImageUrl(person.profile_path, "w500") || "/placeholder-avatar.png"}
+                            alt={person.name}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 50vw, 20vw"
+                          />
                         </div>
-                      </Link>
+                        <div className="space-y-1">
+                          <p className="font-semibold line-clamp-1">{person.name}</p>
+                          <p className="text-sm text-gray-400 line-clamp-1">{person.character}</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </TabsContent>
-              </Tabs>
+                </section>
+              )}
             </div>
 
-            <div>
-              <div className="bg-gray-900 rounded-lg p-6 space-y-4">
-                <h3 className="text-xl font-semibold">Available to Download</h3>
-                <p className="text-gray-400">Watch offline on the Steam X app when you download this title.</p>
-                <Button className="w-full gap-2 bg-steam-red hover:bg-steam-red/90">
-                  <Download className="h-5 w-5" />
-                  Download
-                </Button>
+            {/* Right Column */}
+            <div className="space-y-6">
+              <div className="bg-gray-900/50 rounded-lg p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Status</span>
+                  <span>{movie.status}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Budget</span>
+                  <span>${(movie.budget / 1000000).toFixed(1)}M</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Revenue</span>
+                  <span>${(movie.revenue / 1000000).toFixed(1)}M</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Popularity</span>
+                  <span className="flex items-center gap-1">
+                    <ThumbsUp className="h-4 w-4" />
+                    {movie.popularity.toFixed(1)}
+                  </span>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-12">
-            <ContentRow title="More Like This" movies={similarMovies} />
+              {movie.production_companies?.length > 0 && (
+                <div className="bg-gray-900/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold mb-4">Production Companies</h3>
+                  <div className="space-y-4">
+                    {movie.production_companies.map((company) => (
+                      <div key={company.id} className="text-sm text-gray-300">
+                        {company.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </main>
 
+        {/* Similar Movies Section */}
+        {similarMovies.length > 0 && (
+          <div className="py-8">
+            <ContentRow
+              title="Similar Movies"
+              movies={similarMovies}
+              isLoading={false}
+            />
+          </div>
+        )}
+      </main>
       <Footer />
     </div>
   )

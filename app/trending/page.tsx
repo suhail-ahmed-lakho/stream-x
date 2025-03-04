@@ -5,7 +5,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { WelcomeBanner } from "@/components/welcome-banner"
 import { Button } from "@/components/ui/button"
-import { fetchTrendingMovies, type MovieResult } from "@/lib/tmdb"
+import { fetchTrending, type MovieResult } from "@/lib/tmdb"
 import { Film, Calendar, Star } from "lucide-react"
 
 const timeWindows = [
